@@ -1,2 +1,1 @@
-# Dubhacks24
-Dubhacks 
+# DubHacks 2024
