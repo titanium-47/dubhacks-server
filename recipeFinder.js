@@ -51,12 +51,51 @@ var SUPABASE_KEY = (_b = process.env.SUPABASE_KEY) !== null && _b !== void 0 ? _
 var GOOGLE_API_KEY = (_c = process.env.GOOGLE_API) !== null && _c !== void 0 ? _c : '';
 var USDA_API_KEY = (_d = process.env.USDA_API_KEY) !== null && _d !== void 0 ? _d : '';
 var NUM_TOKENS = 1000;
-// const openai = new OpenAI();
 var OPEN_AI = (_e = process.env.OPEN_AI) !== null && _e !== void 0 ? _e : '';
 var supabase = (0, supabase_js_1.createClient)(SUPABASE_URL, SUPABASE_KEY);
 function removeTextAfterComment(text) {
     var index = text.toLowerCase().indexOf('comment');
     return index === -1 ? text : text.slice(0, index).trim();
+}
+function router(item) {
+    return __awaiter(this, void 0, void 0, function () {
+        var sys_prompt_raw, sys_prompt, response;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, supabase.from('prompts').select('prompt').eq('prompt_type', 'router').single()];
+                case 1:
+                    sys_prompt_raw = _a.sent();
+                    sys_prompt = sys_prompt_raw['data']['prompt']['sys'];
+                    return [4 /*yield*/, axios_1.default.post('https://api.openai.com/v1/chat/completions', {
+                            "model": "gpt-4o-mini",
+                            "messages": [
+                                {
+                                    "role": "system",
+                                    "content": sys_prompt
+                                },
+                                {
+                                    "role": "user",
+                                    "content": item
+                                }
+                            ]
+                        }, {
+                            "headers": {
+                                'Content-Type': 'application/json',
+                                'Authorization': "Bearer ".concat(OPEN_AI)
+                            }
+                        })];
+                case 2:
+                    response = _a.sent();
+                    if (response['data']['choices'][0]['message']['content'] === 'simple') {
+                        return [2 /*return*/, true];
+                    }
+                    else {
+                        return [2 /*return*/, false];
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    });
 }
 function promptOpenAI(sys_prompt, user_prompt) {
     return __awaiter(this, void 0, void 0, function () {
@@ -122,74 +161,73 @@ function promptOpenAI(sys_prompt, user_prompt) {
 }
 function getRecipe(item) {
     return __awaiter(this, void 0, void 0, function () {
-        var proto_prompt, input, prompt, _i, _a, obj, recipe_url, recipe_info, selector, pageText, json_response;
-        return __generator(this, function (_b) {
-            switch (_b.label) {
-                case 0: return [4 /*yield*/, supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single()];
+        var simple, json_response, proto_prompt, input, prompt_1, _i, _a, obj, proto_prompt, recipe_sites, recipe_url, recipe_info, selector_1, pageText, input, prompt_2, _b, _c, obj;
+        return __generator(this, function (_d) {
+            switch (_d.label) {
+                case 0: return [4 /*yield*/, router(item)];
                 case 1:
-                    proto_prompt = _b.sent();
+                    simple = _d.sent();
+                    json_response = {};
+                    if (!simple) return [3 /*break*/, 4];
+                    return [4 /*yield*/, supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single()];
+                case 2:
+                    proto_prompt = _d.sent();
                     // console.log(proto_prompt);
                     proto_prompt = proto_prompt['data']['prompt'];
                     input = {
                         "recipe": item
                     };
-                    prompt = proto_prompt['context'] + '\n';
+                    prompt_1 = proto_prompt['context'] + '\n';
                     for (_i = 0, _a = proto_prompt['messages']; _i < _a.length; _i++) {
                         obj = _a[_i];
-                        prompt += obj['text'] + input[obj['content']];
+                        prompt_1 += obj['text'] + input[obj['content']];
                     }
-                    recipe_url = "https://www.loveandlemons.com/how-to-make-hard-boiled-eggs/";
+                    return [4 /*yield*/, promptOpenAI(proto_prompt['return'], prompt_1)];
+                case 3:
+                    json_response = _d.sent();
+                    return [3 /*break*/, 9];
+                case 4: return [4 /*yield*/, supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe_complex').single()];
+                case 5:
+                    proto_prompt = _d.sent();
+                    // console.log(proto_prompt);
+                    proto_prompt = proto_prompt['data']['prompt'];
+                    return [4 /*yield*/, axios_1.default.get("https://www.googleapis.com/customsearch/v1?key=".concat(GOOGLE_API_KEY, "&cx=52d41ee068c0d4fc3&q=how to make ").concat(item))];
+                case 6:
+                    recipe_sites = _d.sent();
+                    recipe_url = recipe_sites.data.items[0].link;
+                    //const recipe_url = "https://www.loveandlemons.com/how-to-make-hard-boiled-eggs/"
                     console.log(recipe_url);
                     return [4 /*yield*/, axios_1.default.get(recipe_url)];
-                case 2:
-                    recipe_info = _b.sent();
-                    selector = cheerio.load(recipe_info.data);
-                    pageText = selector('p')
+                case 7:
+                    recipe_info = _d.sent();
+                    selector_1 = cheerio.load(recipe_info.data);
+                    pageText = selector_1('p')
                         .map(function () {
-                        return selector(this).text().trim(); // Get and trim the text from each <p>
+                        return selector_1(this).text().trim(); // Get and trim the text from each <p>
                     })
                         .get() // Convert to an array of strings
                         .join('\n');
-                    pageText = removeTextAfterComment(pageText);
-                    return [4 /*yield*/, promptOpenAI(proto_prompt['return'], prompt)];
-                case 3:
-                    json_response = _b.sent();
-                    console.log(json_response);
-                    return [2 /*return*/, new Promise(function (resolve) {
-                            setTimeout(function () {
-                                resolve('This is a placeholder for the recipe');
-                            }, 1000);
-                        })];
+                    input = {
+                        "recipe": item,
+                        "recipe_text": pageText
+                    };
+                    prompt_2 = proto_prompt['context'] + '\n';
+                    for (_b = 0, _c = proto_prompt['messages']; _b < _c.length; _b++) {
+                        obj = _c[_b];
+                        prompt_2 += obj['text'] + input[obj['content']];
+                    }
+                    return [4 /*yield*/, promptOpenAI(proto_prompt['return'], prompt_2)];
+                case 8:
+                    json_response = _d.sent();
+                    _d.label = 9;
+                case 9: 
+                //console.log(json_response);
+                return [2 /*return*/, new Promise(function (resolve) {
+                        setTimeout(function () {
+                            resolve(json_response);
+                        }, 1000);
+                    })];
             }
         });
     });
 }
-// export async function getRecipe(item: string): Promise<string> {
-//     let proto_prompt : object = await supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single();
-//     proto_prompt = proto_prompt['data']['prompt'];
-//     const input = {
-//         "recipe": item
-//     }
-//     let prompt : string = proto_prompt['context'] + '\n';
-//     for (const obj of proto_prompt['messages']) {
-//         prompt += obj['text'] + input[obj['content']];
-//     }
-//     // prompt += '\n' + proto_prompt['return'];
-//     console.log(prompt);
-//     let message = [{
-//         "role":"system","content":proto_prompt['return']},
-//         {"role":"user","content":prompt},]
-//     let message_str : string = JSON.stringify(message);
-//     const options = {
-//         method: 'POST',
-//         headers: {Authorization: `Bearer ${PERPLEXITY}`, 'Content-Type': 'application/json'},
-//         body: `{"model":"llama-3.1-sonar-small-128k-online","messages":${message_str},"max_tokens":${NUM_TOKENS},"temperature":0.2,"top_p":0.9,"return_citations":true,"search_domain_filter":["perplexity.ai"],"return_images":false,"return_related_questions":false,"search_recency_filter":"month","top_k":0,"stream":false,"presence_penalty":0,"frequency_penalty":1}`
-//       };
-//     const response = await fetch('https://api.perplexity.ai/chat/completions', options);
-//     const data = await response.json();
-//     return new Promise((resolve) => {
-//         setTimeout(() => {
-//             resolve(data);
-//           }, 1000);
-//     });
-// }
