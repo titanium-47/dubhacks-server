@@ -23,10 +23,42 @@ function removeTextAfterComment(text: string): string {
     return index === -1 ? text : text.slice(0, index).trim();
 }
 
+interface PromptResponse {
+    data: {
+      prompt: {
+        sys: string;
+      };
+    };
+  }
+
+interface OpenAIResponse {
+    data: {
+        choices: {
+        message: {
+            content: string;
+        };
+        }[];
+    };
+}
+
+interface ProtoPrompt {
+    data: {
+      prompt: {
+        context: string;
+        messages: { text: string; content: string }[];
+        return: string;
+      };
+    };
+  }
+
+interface Input {
+    [key: string]: string;
+}
+
 async function router(item: string): Promise<boolean> {
-    let sys_prompt_raw : object = await supabase.from('prompts').select('prompt').eq('prompt_type', 'router').single();
+    let sys_prompt_raw : PromptResponse = await supabase.from('prompts').select('prompt').eq('prompt_type', 'router').single();
     let sys_prompt : string = sys_prompt_raw['data']['prompt']['sys'];
-    let response: object = await axios.post('https://api.openai.com/v1/chat/completions', {
+    let response: OpenAIResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
         "model": "gpt-4o-mini",
         "messages": [
             {
@@ -52,7 +84,7 @@ async function router(item: string): Promise<boolean> {
 }
 
 async function promptOpenAI(sys_prompt: string, user_prompt: string): Promise<object> {
-    let response: object = await axios.post('https://api.openai.com/v1/chat/completions', {
+    let response: OpenAIResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
         "model": "gpt-4o-mini",
         "messages": [
             {
@@ -108,21 +140,20 @@ export async function getRecipe(item: string): Promise<object> {
     let json_response : object = {};
 
     if (simple) {
-        let proto_prompt : object = await supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single();
+        let proto_prompt : ProtoPrompt = await supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single();
         // console.log(proto_prompt);
-        proto_prompt = proto_prompt['data']['prompt'];
-        const input = {
-            "recipe": item
+        const input: Input = {
+            "recipe": item,
+            "recipe_text": ""
         }
-        let prompt : string = proto_prompt['context'] + '\n';
-        for (const obj of proto_prompt['messages']) {
+        let prompt : string = proto_prompt['data']['prompt']['context'] + '\n';
+        for (const obj of proto_prompt['data']['prompt']['messages']) {
             prompt += obj['text'] + input[obj['content']];
         }
-        json_response = await promptOpenAI(proto_prompt['return'], prompt);
+        json_response = await promptOpenAI(proto_prompt['data']['prompt']['return'], prompt);
     } else {
-        let proto_prompt : object = await supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe_complex').single();
+        let proto_prompt : ProtoPrompt = await supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe_complex').single();
         // console.log(proto_prompt);
-        proto_prompt = proto_prompt['data']['prompt'];
 
         const recipe_sites = await axios.get(`https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=52d41ee068c0d4fc3&q=how to make ${item}`);
         const recipe_url = recipe_sites.data.items[0].link;
@@ -139,15 +170,15 @@ export async function getRecipe(item: string): Promise<object> {
 
         // console.log(pageText);
 
-        const input = {
+        const input : Input = {
             "recipe": item,
             "recipe_text": pageText
         }
-        let prompt : string = proto_prompt['context'] + '\n';
-        for (const obj of proto_prompt['messages']) {
+        let prompt : string = proto_prompt['data']['prompt']['context'] + '\n';
+        for (const obj of proto_prompt['data']['prompt']['messages']) {
             prompt += obj['text'] + input[obj['content']];
         }
-        json_response = await promptOpenAI(proto_prompt['return'], prompt);
+        json_response = await promptOpenAI(proto_prompt['data']['prompt']['return'], prompt);
     }
     
     //console.log(json_response);
