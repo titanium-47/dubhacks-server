@@ -42,10 +42,10 @@ function main() {
         var recipe;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, (0, recipeFinder_1.getRecipe)('Chicken Tikka Masala')];
+                case 0: return [4 /*yield*/, (0, recipeFinder_1.getRecipe)('Boiled Egg')];
                 case 1:
                     recipe = _a.sent();
-                    console.log(recipe['choices'][0]['message']['content']);
+                    console.log(recipe);
                     return [2 /*return*/];
             }
         });
