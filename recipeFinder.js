@@ -44,19 +44,29 @@ dotenv.config();
 var PERPLEXITY = process.env.PERPLEXITY;
 var SUPABASE_URL = (_a = process.env.SUPABASE_URL) !== null && _a !== void 0 ? _a : '';
 var SUPABASE_KEY = (_b = process.env.SUPABASE_KEY) !== null && _b !== void 0 ? _b : '';
-var NUM_TOKENS = 100;
+var NUM_TOKENS = 1000;
 var supabase = (0, supabase_js_1.createClient)(SUPABASE_URL, SUPABASE_KEY);
 function getRecipe(item) {
     return __awaiter(this, void 0, void 0, function () {
-        var prompt, message, message_str, options, response, data;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
+        var proto_prompt, input, prompt, _i, _a, obj, message, message_str, options, response, data;
+        return __generator(this, function (_b) {
+            switch (_b.label) {
                 case 0: return [4 /*yield*/, supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single()];
                 case 1:
-                    prompt = _a.sent();
-                    prompt = prompt['data']['prompt'];
+                    proto_prompt = _b.sent();
+                    proto_prompt = proto_prompt['data']['prompt'];
+                    input = {
+                        "recipe": item
+                    };
+                    prompt = proto_prompt['context'] + '\n';
+                    for (_i = 0, _a = proto_prompt['messages']; _i < _a.length; _i++) {
+                        obj = _a[_i];
+                        prompt += obj['text'] + input[obj['content']];
+                    }
+                    // prompt += '\n' + proto_prompt['return'];
+                    console.log(prompt);
                     message = [{
-                            "role": "system", "content": "Be precise and concise."
+                            "role": "system", "content": proto_prompt['return']
                         },
                         { "role": "user", "content": prompt },];
                     message_str = JSON.stringify(message);
@@ -67,10 +77,10 @@ function getRecipe(item) {
                     };
                     return [4 /*yield*/, fetch('https://api.perplexity.ai/chat/completions', options)];
                 case 2:
-                    response = _a.sent();
+                    response = _b.sent();
                     return [4 /*yield*/, response.json()];
                 case 3:
-                    data = _a.sent();
+                    data = _b.sent();
                     return [2 /*return*/, new Promise(function (resolve) {
                             setTimeout(function () {
                                 resolve(data);

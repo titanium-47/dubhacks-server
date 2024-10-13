@@ -5,16 +5,26 @@ dotenv.config();
 const PERPLEXITY = process.env.PERPLEXITY;
 const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
 const SUPABASE_KEY = process.env.SUPABASE_KEY ?? '';
-const NUM_TOKENS = 100;
+const NUM_TOKENS = 1000;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
 export async function getRecipe(item: string): Promise<string> {
-    let prompt : object = await supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single();
-    prompt = prompt['data']['prompt'];
+    let proto_prompt : object = await supabase.from('prompts').select('prompt').eq('prompt_type', 'recipe').single();
+    proto_prompt = proto_prompt['data']['prompt'];
+    
+    const input = {
+        "recipe": item
+    }
+    let prompt : string = proto_prompt['context'] + '\n';
+    for (const obj of proto_prompt['messages']) {
+        prompt += obj['text'] + input[obj['content']];
+    }
+    // prompt += '\n' + proto_prompt['return'];
 
+    console.log(prompt);
     let message = [{
-        "role":"system","content":"Be precise and concise."},
+        "role":"system","content":proto_prompt['return']},
         {"role":"user","content":prompt},]
     
     let message_str : string = JSON.stringify(message);
