@@ -2,12 +2,12 @@
   "compilerOptions": {
     "target": "es6",
     "module": "CommonJS",
-    "rootDir": "./src",
+    "rootDir": "./api",
     "outDir": "./dist",
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
+  "include": ["api/**/*"],
   "exclude": ["node_modules", "**/*.spec.ts"]
 }
